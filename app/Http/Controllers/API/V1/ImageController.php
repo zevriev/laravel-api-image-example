@@ -10,6 +10,8 @@ use Illuminate\Http\Request;
 
 class ImageController extends Controller
 {
+    public $folderPath = "app/public/images/";
+
     /**
      * Display a listing of the resource.
      *
@@ -166,35 +168,74 @@ class ImageController extends Controller
      *      )
      *    )
      */
-    private function storeBase64(Request $request)
+    public function storeBase64(Request $request)
     {
-        print_r($request->base64image->count());
-        $img = '';
-        $folderPath = "images/";
+        foreach ($request->post('imagesBase64') as $img) {
+            $image_parts = explode(";base64,", $img);
+            $image_type_aux = explode("image/", $image_parts[0]);
+            $image_type = $image_type_aux[1];
+            $image_base64 = base64_decode($image_parts[1]);
+            $file = $this->folderPath . uniqid() . '.' . $image_type;
 
-        $image_parts = explode(";base64,", $img);
-        $image_type_aux = explode("image/", $image_parts[0]);
-        $image_type = $image_type_aux[1];
-        $image_base64 = base64_decode($image_parts[1]);
-        $file = $folderPath . uniqid() . '. '.$image_type;
-
-        file_put_contents($file, $image_base64);
-
+            file_put_contents(storage_path($file), $image_base64);
+        }
     }
 
-    private function downloadImageFromUrl($url, $saveto) {
-        $ch = curl_init ($url);
-        curl_setopt($ch, CURLOPT_HEADER, 0);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-        curl_setopt($ch, CURLOPT_BINARYTRANSFER,1);
-        $raw = curl_exec($ch);
-        curl_close ($ch);
-        if(file_exists($saveto)){
-            unlink($saveto);
+    /**
+     * Store a newly created resource in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\JsonResponse
+     *
+     *    @OA\Post(
+     *      path="/imagesFromUrl",
+     *      operationId="imagesFromUrl",
+     *      tags={"Image"},
+     *      summary="Save images",
+     *      description="Save images",
+     *      @OA\Parameter(
+     *         name="urls[]",
+     *         in="path",
+     *         required=true,
+     *         @OA\Schema(
+     *           type="array",
+     *           @OA\Items(type="string"),
+     *         )
+     *     ),
+     *
+     *      @OA\Response(
+     *          response=200,
+     *          description="Successful operation",
+     *          @OA\JsonContent(ref="#/components/schemas/ProjectResource")
+     *       ),
+     *      @OA\Response(
+     *          response=401,
+     *          description="Unauthenticated",
+     *      ),
+     *      @OA\Response(
+     *          response=403,
+     *          description="Forbidden"
+     *      )
+     *    )
+     */
+    public function imagesFromUrl(Request $request) {
+        foreach ($request->input('urls') as $url) {
+            $ch = curl_init($url);
+            curl_setopt($ch, CURLOPT_HEADER, 0);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+            curl_setopt($ch, CURLOPT_BINARYTRANSFER, 1);
+            $raw = curl_exec($ch);
+            list($type, $ext) = explode('/', curl_getinfo($ch, CURLINFO_CONTENT_TYPE));
+
+            $file = $this->folderPath . uniqid() . '.' . $ext;;
+            if (file_exists($file)) {
+                unlink($file);
+            }
+            $fp = fopen(storage_path($file), 'x');
+            fwrite($fp, $raw);
+            fclose($fp);
+            curl_close($ch);
         }
-        $fp = fopen($saveto,'x');
-        fwrite($fp, $raw);
-        fclose($fp);
     }
 
     /**
