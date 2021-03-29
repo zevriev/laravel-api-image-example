@@ -6,8 +6,11 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\ProjectResource;
 use App\Models\Image;
 use App\Models\ImageThumb;
+use App\Models\Log;
+use Exception;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Intervention\Image\ImageManager;
 
 class ImageController extends Controller
@@ -43,8 +46,18 @@ class ImageController extends Controller
      */
     public function index()
     {
+        $imgs = [];
         $images = Image::all();
-        return response([ 'images' => ProjectResource::collection($images), 'message' => 'Retrieved successfully'], 200);
+        foreach($images as $image) {
+            $thumbs = [];
+            foreach($image->thumbs as $thumb) {
+                $thumb['path'] = asset('images/thumbs/' . $thumb['path']);
+            }
+            $image['path'] = asset('images/' . $image['path']);
+            $image['thumbs'] = $thumbs;
+            $imgs[] = $image;
+        }
+        return response([ 'images' => ProjectResource::collection($imgs), 'message' => 'Retrieved successfully'], 200);
     }
 
     /**
@@ -90,39 +103,34 @@ class ImageController extends Controller
      */
     public function store(Request $request)
     {
-        if(!$request->hasFile('fileNames')) {
-            return response()->json(['upload_file_not_found'], 400);
-        }
-
-        $allowedfileExtension=['pdf','jpg', 'jpeg','png'];
-        $files = $request->file('fileNames');
-        $errors = [];
-
-        foreach ($files as $file) {
-            $extension = $file->getClientOriginalExtension();
-            $check = in_array($extension,$allowedfileExtension);
-            if($check) {
-                foreach($request->fileNames as $mediaFiles) {
-                    $path = $mediaFiles->store('public/images');
-                    $name = $mediaFiles->getClientOriginalName();
-
-                    //store image file into directory and db
-                    $save = new Image();
-                    $save->title = $name;
-                    $save->path = $path;
-                    $save->save();
-                }
-            } else {
-                return response()->json(['invalid_file_format'], 422);
+        try {
+            if (!$request->hasFile('fileNames')) {
+                Log::error(400, 'upload_file_not_found');
+                return response()->json(['upload_file_not_found'], 400);
             }
 
-            return response()->json(['file_uploaded'], 200);
+            $allowedfileExtension = ['pdf', 'jpg', 'jpeg', 'png'];
+            $files = $request->file('fileNames');
 
+            foreach ($files as $file) {
+                $extension = $file->getClientOriginalExtension();
+                $check = in_array($extension, $allowedfileExtension);
+                if ($check) {
+                    foreach ($request->fileNames as $mediaFiles) {
+                        $fileName = uniqid() . '.' . $extension;
+                        $mediaFiles->storeAs('public/images', $fileName);
+                        $this->processImages($fileName, $extension);
+                    }
+                } else {
+                    Log::error(422, 'invalid_file_format');
+                    return response()->json(['invalid_file_format'], 422);
+                }
+                return response()->json(['file_uploaded'], 200);
+            }
+        } catch(Exception $ex) {
+            Log::error(500, $ex->getMessage());
+            return response()->json(['internal_error'], 500);
         }
-
-//        if ($validator->fails()) {
-//            return response()->json(['message' => $validator->messages()->first()], 500);
-//        }
     }
 
     /**
@@ -168,22 +176,28 @@ class ImageController extends Controller
      */
     public function storeBase64(Request $request)
     {
-        foreach ($request->post('imagesBase64') as $img) {
-            $image_parts = explode(";base64,", $img);
-            $image_type_aux = explode("image/", $image_parts[0]);
-            $image_type = $image_type_aux[1];
-            $image_base64 = base64_decode($image_parts[1]);
+        try {
+            if (!$request->has('imagesBase64')) {
+                Log::error(400, 'base64_not_found');
+                return response()->json(['base64_not_found'], 400);
+            }
 
-            $fileName = uniqid() . '.' . $image_type;
-            $file = $this->folderPath . $fileName;
+            foreach ($request->post('imagesBase64') as $img) {
+                $image_parts = explode(";base64,", $img);
+                $image_type_aux = explode("image/", $image_parts[0]);
+                $image_type = $image_type_aux[1];
+                $image_base64 = base64_decode($image_parts[1]);
 
-            file_put_contents(storage_path($file), $image_base64);
+                $fileName = uniqid() . '.' . $image_type;
+                $file = $this->folderPath . $fileName;
 
-            //store image file into directory and db
-            $save = new Image();
-            $save->title = $fileName;
-            $save->path = $this->folderPath . $fileName;
-            $save->save();
+                file_put_contents(storage_path($file), $image_base64);
+
+                $this->processImages($fileName, $image_type);
+            }
+        } catch (Exception $ex) {
+            Log::error(500, $ex->getMessage());
+            return response()->json(['internal_error'], 500);
         }
     }
 
@@ -243,44 +257,7 @@ class ImageController extends Controller
             fclose($fp);
             curl_close($ch);
 
-            //store image file into db
-            $image = new Image();
-            $image->title = $fileName;
-            $image->path = $file;
-            $image->save();
-
-
-            $manager = new ImageManager(array('driver' => 'imagick'));
-            $imageManager = $manager->make(storage_path($file))->resize(100, 100, function ($constraint) {
-                $constraint->aspectRatio();
-                $constraint->upsize();
-            })->resizeCanvas(100, 100);
-            $thumb100Path = storage_path($this->folderPath) . 'thumbs/' . uniqid() . '_100x100' . $ext;
-            $imageManager->save($thumb100Path);
-
-            //store image thumb file into db
-            $saveThumb = new ImageThumb();
-            $saveThumb->image_id = $image->id;
-            $saveThumb->path = $thumb100Path;
-            $saveThumb->width = 100;
-            $saveThumb->height = 100;
-            $saveThumb->save();
-
-
-            $imageManager = $manager->make(storage_path($file))->resize(400, 400, function ($constraint) {
-                $constraint->aspectRatio();
-                $constraint->upsize();
-            })->resizeCanvas(400, 400);
-            $thumb400Path = storage_path($this->folderPath) . 'thumbs/' . uniqid() . '_400x400' . $ext;
-            $imageManager->save($thumb400Path);
-
-            //store image thumb file into db
-            $saveThumb = new ImageThumb();
-            $saveThumb->image_id = $image->id;
-            $saveThumb->path = $thumb400Path;
-            $saveThumb->width = 400;
-            $saveThumb->height = 400;
-            $saveThumb->save();
+            $this->processImages($fileName, $ext);
         }
     }
 
@@ -374,5 +351,64 @@ class ImageController extends Controller
         $image->delete();
 
         return response(['message' => 'Deleted']);
+    }
+
+    private function processImages($file, $ext) {
+        try {
+            $manager = new ImageManager(array('driver' => 'imagick'));
+            $origImg = $manager->make(storage_path($this->folderPath . $file));
+            $width = $origImg->getWidth();
+            $height = $origImg->getHeight();
+
+            $imageManager = $origImg->resize(100, 100, function ($constraint) {
+                $constraint->aspectRatio();
+                $constraint->upsize();
+            })->resizeCanvas(100, 100);
+            $thumb100Name = uniqid() . '_100x100.' . $ext;
+            $thumb100Path = storage_path($this->folderPath) . 'thumbs/' . $thumb100Name;
+            $imageManager->save($thumb100Path);
+
+
+            $origImg = $manager->make(storage_path($this->folderPath . $file));
+            $imageManager = $origImg->resize(400, 400, function ($constraint) {
+                $constraint->aspectRatio();
+                $constraint->upsize();
+            })->resizeCanvas(400, 400);
+            $thumb400Name = uniqid() . '_400x400.' . $ext;
+            $thumb400Path = storage_path($this->folderPath) . 'thumbs/' . $thumb400Name;
+            $imageManager->save($thumb400Path);
+        } catch(Exception $ex) {
+
+        }
+
+        DB::beginTransaction();
+        try {
+            //store image file into db
+            $image = new Image();
+            $image->path = $file;
+            $image->width = $width;
+            $image->height = $height;
+            $image->save();
+
+            //store image thumb file into db
+            $saveThumb = new ImageThumb();
+            $saveThumb->image_id = $image->id;
+            $saveThumb->path = $thumb100Name;
+            $saveThumb->width = 100;
+            $saveThumb->height = 100;
+            $saveThumb->save();
+
+            //store image thumb file into db
+            $saveThumb = new ImageThumb();
+            $saveThumb->image_id = $image->id;
+            $saveThumb->path = $thumb400Name;
+            $saveThumb->width = 400;
+            $saveThumb->height = 400;
+            $saveThumb->save();
+
+            DB::commit();
+        } catch(Exception $ex) {
+            DB::rollback();
+        }
     }
 }

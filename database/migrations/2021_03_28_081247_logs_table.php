@@ -15,9 +15,9 @@ class LogsTable extends Migration
     {
         Schema::create('logs', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('thumb_id');
             $table->string('code');
             $table->text('message');
+            $table->timestamp()
         });
     }
 

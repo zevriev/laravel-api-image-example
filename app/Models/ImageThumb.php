@@ -20,4 +20,8 @@ class ImageThumb extends Model
         'width',
         'height',
     ];
+
+    public function image() {
+        return $this->belongsTo('App\Models\Image');
+    }
 }
