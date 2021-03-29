@@ -2,7 +2,8 @@
 
 namespace Tests\Feature;
 
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class ImageTest extends TestCase
@@ -12,8 +13,8 @@ class ImageTest extends TestCase
      *
      * @return void
      */
-    public function indexTest() {
-        $response = $this->get('/api/images');
+    public function testIndex() {
+        $response = $this->get('/api/v1/images');
 
         $response->assertStatus(200)
                 ->assertJson([
@@ -25,8 +26,22 @@ class ImageTest extends TestCase
      * An image upload multipart test
      * @return void
      */
-    public function storeTest() {
+    public function testStore() {
+        Storage::fake('images');
 
+        $response = $this->json('POST', 'api/v1/images', [
+            'fileNames' => [UploadedFile::fake()->image('photo1.jpg'),
+                            UploadedFile::fake()->image('photo2.jpg')]
+        ]);
+
+//        $this->seeInDatabase();
+        // Assert one or more files were stored...
+        Storage::disk('images')->assertExists('photo1.jpg');
+        Storage::disk('images')->assertExists(['photo1.jpg', 'photo2.jpg']);
+
+        // Assert one or more files were not stored...
+        Storage::disk('photos')->assertMissing('missing.jpg');
+        Storage::disk('photos')->assertMissing(['missing.jpg', 'non-existing.jpg']);
     }
 
     /**

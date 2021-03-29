@@ -8,17 +8,20 @@
 </p>
 
 ## Laravel Api Image Example
-To start project 
 
+### Basic commands
 - composer install
 - copy .env.example to .env and configure db access
 - php artisan key:generate
+
+### Commands to start project with native interpreter
 - php artisan migrate
 - php artisan serve --port=8080
 
 http://127.0.0.1:8080/api/documentation - here will swagger documentation
 
-
+### Commands to start project in native docker compose
+sudo ./vendor/bin/sail up
 
 ## About Laravel
 

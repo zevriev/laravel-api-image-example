@@ -36,6 +36,6 @@ class LogController extends Controller
      *     )
      */
     public function getlist() {
-        return response([ 'logss' => ProjectResource::collection(Log::all()), 'message' => 'Retrieved successfully'], 200);
+        return response([ 'logs' => ProjectResource::collection(Log::all()), 'message' => 'Retrieved successfully'], 200);
     }
 }

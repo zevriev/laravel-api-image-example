@@ -239,23 +239,38 @@ class ImageController extends Controller
      *    )
      */
     public function imagesFromUrl(Request $request) {
-        foreach ($request->input('urls') as $url) {
-            $ch = curl_init($url);
-            curl_setopt($ch, CURLOPT_HEADER, 0);
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-            curl_setopt($ch, CURLOPT_BINARYTRANSFER, 1);
-            $raw = curl_exec($ch);
-            list($type, $ext) = explode('/', curl_getinfo($ch, CURLINFO_CONTENT_TYPE));
+        $validator = Validator::make(request()->all(), [
+            'urls' => 'required|array|email',
+        ], [
+            'urls' => 'Invalid url'
+        ]);
 
-            $fileName = uniqid() . '.' . $ext;
-            $file = $this->folderPath . $fileName;
-            if (file_exists($file)) {
-                unlink($file);
+        if ($validator->fails()) {
+            Log::error(422, '$validator->messages()');
+            return response()->json([$validator->messages()], 422);
+        }
+        foreach ($request->input('urls') as $url) {
+            try {
+                $ch = curl_init($url);
+                curl_setopt($ch, CURLOPT_HEADER, 0);
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+                curl_setopt($ch, CURLOPT_BINARYTRANSFER, 1);
+                $raw = curl_exec($ch);
+                list($type, $ext) = explode('/', curl_getinfo($ch, CURLINFO_CONTENT_TYPE));
+
+                $fileName = uniqid() . '.' . $ext;
+                $file = $this->folderPath . $fileName;
+                if (file_exists($file)) {
+                    unlink($file);
+                }
+                $fp = fopen(storage_path($file), 'x');
+                fwrite($fp, $raw);
+                fclose($fp);
+                curl_close($ch);
+            } catch (Exception $ex) {
+                Log::error(500, $ex->getMessage());
+                return response()->json([$ex->getMessage()], 500);
             }
-            $fp = fopen(storage_path($file), 'x');
-            fwrite($fp, $raw);
-            fclose($fp);
-            curl_close($ch);
 
             $this->processImages($fileName, $ext);
         }
@@ -378,7 +393,8 @@ class ImageController extends Controller
             $thumb400Path = storage_path($this->folderPath) . 'thumbs/' . $thumb400Name;
             $imageManager->save($thumb400Path);
         } catch(Exception $ex) {
-
+            Log::error(500, $ex->getMessage());
+            return response()->json([$ex->getMessage()], 500);
         }
 
         DB::beginTransaction();
