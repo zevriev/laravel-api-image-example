@@ -11,6 +11,8 @@
 To start project 
 
 - composer install
+- configure db access in .env file
+- php artisan migrate
 - php artisan serve --port=8080
 
 http://127.0.0.1:8080/api/documentation - here will swagger documentation
