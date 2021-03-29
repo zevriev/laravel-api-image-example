@@ -152,7 +152,7 @@
                 "parameters": [
                     {
                         "name": "urls[]",
-                        "in": "query",
+                        "in": "path",
                         "required": true,
                         "schema": {
                             "type": "array",
@@ -258,6 +258,34 @@
                     },
                     "404": {
                         "description": "Resource Not Found"
+                    }
+                }
+            }
+        },
+        "/logs": {
+            "get": {
+                "tags": [
+                    "Logs"
+                ],
+                "summary": "Get list of logs",
+                "description": "Returns list of logs",
+                "operationId": "getLogsList",
+                "responses": {
+                    "200": {
+                        "description": "Successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProjectResource"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Forbidden"
                     }
                 }
             }

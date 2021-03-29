@@ -25,4 +25,5 @@ Route::group([
 //    'middleware' => ['auth:api']
 ], function () {
     Route::apiResource('images', 'ImageController');
+    Route::apiResource('logs', 'LogController');
 });
