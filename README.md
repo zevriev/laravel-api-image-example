@@ -11,7 +11,8 @@
 To start project 
 
 - composer install
-- configure db access in .env file
+- copy .env.example to .env and configure db access
+- php artisan key:generate
 - php artisan migrate
 - php artisan serve --port=8080
 
