@@ -17,7 +17,7 @@ class LogsTable extends Migration
             $table->id();
             $table->string('code');
             $table->text('message');
-            $table->timestamp();
+            $table->timestamps();
         });
     }
 
