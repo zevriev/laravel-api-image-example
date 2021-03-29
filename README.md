@@ -23,6 +23,11 @@ http://127.0.0.1:8080/api/documentation - here will swagger documentation
 ### Commands to start project in native docker compose
 sudo ./vendor/bin/sail up
 
+Link will appear in console
+{link_from_console}/api/documentation - here will swagger documentation
+
+
+
 ## About Laravel
 
 Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
