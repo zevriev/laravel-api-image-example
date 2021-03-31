@@ -12,7 +12,7 @@ class Log extends Model
     public static function error($code, $message) {
         $log = new Log();
         $log->code = $code;
-        $log->$message = $message;
+        $log->message = $message;
         $log->save();
     }
 }

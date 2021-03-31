@@ -8,7 +8,7 @@ use App\Models\Image;
 use App\Models\ImageThumb;
 use App\Models\Log;
 use Exception;
-use Illuminate\Contracts\Validation\Validator;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Intervention\Image\ImageManager;
@@ -258,14 +258,15 @@ class ImageController extends Controller
      */
     public function imagesFromUrl(Request $request) {
         $imageUrls = [];
-        $validator = Validator::make(request()->all(), [
-            'urls' => 'required|array|email',
+        dd($request->all());
+        $validator = Validator::make($request->all(), [
+            'urls' => 'required|array|url',
         ], [
             'urls' => 'Invalid url'
         ]);
 
         if ($validator->fails()) {
-            Log::error(422, '$validator->messages()');
+            Log::error(422, $validator->messages());
             return response()->json([
                 'message' => $validator->messages()
             ], 422);
@@ -345,7 +346,19 @@ class ImageController extends Controller
      */
     public function show(Image $image)
     {
-        //
+        $thumbs = [];
+        foreach ($image->thumbs as $thumb) {
+            $thumbs[$thumb->width . 'x' . $thumb->height] = asset('images/thumbs/' . $thumb->path);
+        }
+        $image = [
+            'original' => asset('images/' . $image->path),
+            'thumbs' => $thumbs,
+        ];
+
+        return response()->json([
+            'message' => 'success',
+            'image'  => $image
+        ], 200);
     }
 
     /**
