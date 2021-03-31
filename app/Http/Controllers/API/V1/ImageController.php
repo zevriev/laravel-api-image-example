@@ -103,10 +103,13 @@ class ImageController extends Controller
      */
     public function store(Request $request)
     {
+        $imageUrls = [];
         try {
             if (!$request->hasFile('fileNames')) {
                 Log::error(400, 'upload_file_not_found');
-                return response()->json(['upload_file_not_found'], 400);
+                return response()->json([
+                    'message' => 'upload_file_not_found'
+                ], 400);
             }
 
             $allowedfileExtension = ['pdf', 'jpg', 'jpeg', 'png'];
@@ -119,13 +122,18 @@ class ImageController extends Controller
                     foreach ($request->fileNames as $mediaFiles) {
                         $fileName = uniqid() . '.' . $extension;
                         $mediaFiles->storeAs('public/images', $fileName);
-                        $this->processImages($fileName, $extension);
+                        $imageUrls[] = $this->processImages($fileName, $extension);
                     }
                 } else {
                     Log::error(422, 'invalid_file_format');
-                    return response()->json(['invalid_file_format'], 422);
+                    return response()->json([
+                        'message' => 'invalid_file_format'
+                    ], 422);
                 }
-                return response()->json(['file_uploaded'], 200);
+                return response()->json([
+                    'message' => 'file_uploaded',
+                    'images'  => $imageUrls
+                ], 200);
             }
         } catch(Exception $ex) {
             Log::error(500, $ex->getMessage());
@@ -176,10 +184,13 @@ class ImageController extends Controller
      */
     public function storeBase64(Request $request)
     {
+        $imageUrls = [];
         try {
             if (!$request->has('imagesBase64')) {
                 Log::error(400, 'base64_not_found');
-                return response()->json(['base64_not_found'], 400);
+                return response()->json([
+                    'message' => 'base64_not_found'
+                ], 400);
             }
 
             foreach ($request->post('imagesBase64') as $img) {
@@ -193,11 +204,18 @@ class ImageController extends Controller
 
                 file_put_contents(storage_path($file), $image_base64);
 
-                $this->processImages($fileName, $image_type);
+                $imageUrls[] = $this->processImages($fileName, $image_type);
             }
+
+            return response()->json([
+                'message' => 'base64_uploaded',
+                'images'  => $imageUrls
+            ], 200);
         } catch (Exception $ex) {
             Log::error(500, $ex->getMessage());
-            return response()->json(['internal_error'], 500);
+            return response()->json([
+                'message' => 'internal_error'
+            ], 500);
         }
     }
 
@@ -239,6 +257,7 @@ class ImageController extends Controller
      *    )
      */
     public function imagesFromUrl(Request $request) {
+        $imageUrls = [];
         $validator = Validator::make(request()->all(), [
             'urls' => 'required|array|email',
         ], [
@@ -247,7 +266,9 @@ class ImageController extends Controller
 
         if ($validator->fails()) {
             Log::error(422, '$validator->messages()');
-            return response()->json([$validator->messages()], 422);
+            return response()->json([
+                'message' => $validator->messages()
+            ], 422);
         }
         foreach ($request->input('urls') as $url) {
             try {
@@ -269,11 +290,17 @@ class ImageController extends Controller
                 curl_close($ch);
             } catch (Exception $ex) {
                 Log::error(500, $ex->getMessage());
-                return response()->json([$ex->getMessage()], 500);
+                return response()->json([
+                    'message' => $ex->getMessage()
+                ], 500);
             }
 
-            $this->processImages($fileName, $ext);
+            $imageUrls[] = $this->processImages($fileName, $ext);
         }
+        return response()->json([
+            'message' => 'base64_uploaded',
+            'images'  => $imageUrls
+        ], 200);
     }
 
     /**
@@ -369,6 +396,7 @@ class ImageController extends Controller
     }
 
     private function processImages($file, $ext) {
+        $images = [];
         try {
             $manager = new ImageManager(array('driver' => 'imagick'));
             $origImg = $manager->make(storage_path($this->folderPath . $file));
@@ -396,6 +424,14 @@ class ImageController extends Controller
             Log::error(500, $ex->getMessage());
             return response()->json([$ex->getMessage()], 500);
         }
+
+        $images[] = [
+            'original' => asset('images/' . $file),
+            'thumbs' => [
+                '100x100' => asset('images/thumbs/' . $thumb100Name),
+                '400x400' => asset('images/thumbs/' . $thumb400Name),
+            ],
+        ];
 
         DB::beginTransaction();
         try {
@@ -426,5 +462,7 @@ class ImageController extends Controller
         } catch(Exception $ex) {
             DB::rollback();
         }
+
+        return $images;
     }
 }

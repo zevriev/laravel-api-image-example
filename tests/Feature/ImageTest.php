@@ -30,8 +30,8 @@ class ImageTest extends TestCase
         Storage::fake('images');
 
         $response = $this->json('POST', 'api/v1/images', [
-            'fileNames' => [UploadedFile::fake()->image('photo1.jpg'),
-                            UploadedFile::fake()->image('photo2.jpg')]
+            'fileNames' => [UploadedFile::fake()->image('photo1.jpg', 600, 600),
+                            UploadedFile::fake()->image('photo2.jpg', 600, 600)]
         ]);
 
 //        $this->seeInDatabase();
