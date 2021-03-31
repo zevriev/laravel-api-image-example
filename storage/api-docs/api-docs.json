@@ -152,7 +152,7 @@
                 "parameters": [
                     {
                         "name": "urls[]",
-                        "in": "path",
+                        "in": "query",
                         "required": true,
                         "schema": {
                             "type": "array",

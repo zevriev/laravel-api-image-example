@@ -233,7 +233,7 @@ class ImageController extends Controller
      *      description="Save images",
      *      @OA\Parameter(
      *         name="urls[]",
-     *         in="path",
+     *         in="query",
      *         required=true,
      *         @OA\Schema(
      *           type="array",
@@ -258,9 +258,9 @@ class ImageController extends Controller
      */
     public function imagesFromUrl(Request $request) {
         $imageUrls = [];
-        dd($request->all());
+
         $validator = Validator::make($request->all(), [
-            'urls' => 'required|array|url',
+            'url.*' => 'required|url'
         ], [
             'urls' => 'Invalid url'
         ]);
