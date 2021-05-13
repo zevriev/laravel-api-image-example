@@ -21,6 +21,13 @@ class ImageThumb extends Model
         'height',
     ];
 
+    /**
+     * The attributes that should be hidden for arrays.
+     *
+     * @var array
+     */
+    protected $hidden = ['created_at', 'updated_at', 'image_id'];
+
     public function image() {
         return $this->belongsTo('App\Models\Image');
     }

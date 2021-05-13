@@ -122,7 +122,7 @@ class ImageController extends Controller
                     foreach ($request->fileNames as $mediaFiles) {
                         $fileName = uniqid() . '.' . $extension;
                         $mediaFiles->storeAs('public/images', $fileName);
-                        $imageUrls[] = $this->processImages($fileName, $extension);
+                        $imageUrls[] = $this->processImage($fileName, $extension);
                     }
                 } else {
                     Log::error(422, 'invalid_file_format');
@@ -204,7 +204,7 @@ class ImageController extends Controller
 
                 file_put_contents(storage_path($file), $image_base64);
 
-                $imageUrls[] = $this->processImages($fileName, $image_type);
+                $imageUrls[] = $this->processImage($fileName, $image_type);
             }
 
             return response()->json([
@@ -296,7 +296,7 @@ class ImageController extends Controller
                 ], 500);
             }
 
-            $imageUrls[] = $this->processImages($fileName, $ext);
+            $imageUrls[] = $this->processImage($fileName, $ext);
         }
         return response()->json([
             'message' => 'base64_uploaded',
@@ -408,8 +408,7 @@ class ImageController extends Controller
         return response(['message' => 'Deleted']);
     }
 
-    private function processImages($file, $ext) {
-        $images = [];
+    private function processImage($file, $ext) {
         try {
             $manager = new ImageManager(array('driver' => 'imagick'));
             $origImg = $manager->make(storage_path($this->folderPath . $file));
@@ -438,14 +437,6 @@ class ImageController extends Controller
             return response()->json([$ex->getMessage()], 500);
         }
 
-        $images[] = [
-            'original' => asset('images/' . $file),
-            'thumbs' => [
-                '100x100' => asset('images/thumbs/' . $thumb100Name),
-                '400x400' => asset('images/thumbs/' . $thumb400Name),
-            ],
-        ];
-
         DB::beginTransaction();
         try {
             //store image file into db
@@ -454,28 +445,37 @@ class ImageController extends Controller
             $image->width = $width;
             $image->height = $height;
             $image->save();
+            $image->path = asset('images/' . $file);
 
             //store image thumb file into db
-            $saveThumb = new ImageThumb();
-            $saveThumb->image_id = $image->id;
-            $saveThumb->path = $thumb100Name;
-            $saveThumb->width = 100;
-            $saveThumb->height = 100;
-            $saveThumb->save();
+            $saveThumb100 = new ImageThumb();
+            $saveThumb100->image_id = $image->id;
+            $saveThumb100->path = $thumb100Name;
+            $saveThumb100->width = 100;
+            $saveThumb100->height = 100;
+            $saveThumb100->save();
+            $saveThumb100->path = asset('images/thumbs/' . $thumb100Name);
 
             //store image thumb file into db
-            $saveThumb = new ImageThumb();
-            $saveThumb->image_id = $image->id;
-            $saveThumb->path = $thumb400Name;
-            $saveThumb->width = 400;
-            $saveThumb->height = 400;
-            $saveThumb->save();
+            $saveThumb400 = new ImageThumb();
+            $saveThumb400->image_id = $image->id;
+            $saveThumb400->path = $thumb400Name;
+            $saveThumb400->width = 400;
+            $saveThumb400->height = 400;
+            $saveThumb400->save();
+            $saveThumb400->path = asset('images/thumbs/' . $thumb400Name);
 
             DB::commit();
         } catch(Exception $ex) {
             DB::rollback();
         }
 
-        return $images;
+        return [
+            'original' => $image,
+            'thumbs' => [
+                '100x100' => $saveThumb100,
+                '400x400' => $saveThumb400,
+            ],
+        ];
     }
 }
