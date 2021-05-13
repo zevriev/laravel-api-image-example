@@ -31,17 +31,25 @@ class ImageTest extends TestCase
 
         $response = $this->json('POST', 'api/v1/images', [
             'fileNames' => [UploadedFile::fake()->image('photo1.jpg', 600, 600),
-                            UploadedFile::fake()->image('photo2.jpg', 600, 600)]
-        ]);
+                            UploadedFile::fake()->image('photo2.jpg', 1000, 1000)]
+        ])->assertStatus(200)->decodeResponseJson();
 
-//        $this->seeInDatabase();
-        // Assert one or more files were stored...
-        Storage::disk('images')->assertExists('photo1.jpg');
-        Storage::disk('images')->assertExists(['photo1.jpg', 'photo2.jpg']);
+        $imageOriginal1Path = $response['images'][0]['original']['path'];
+        $imageOriginal1Thumb100 = $response['images'][0]['thumbs']['100x100']['path'];
+        $imageOriginal1Thumb400 = $response['images'][0]['thumbs']['400x400']['path'];
 
-        // Assert one or more files were not stored...
-        Storage::disk('photos')->assertMissing('missing.jpg');
-        Storage::disk('photos')->assertMissing(['missing.jpg', 'non-existing.jpg']);
+        $imageOriginal2Path = $response['images'][1]['original']['path'];
+        $imageOriginal2Thumb100 = $response['images'][1]['thumbs']['100x100']['path'];
+        $imageOriginal2Thumb400 = $response['images'][1]['thumbs']['400x400']['path'];
+dd($this->get('/images/60647991540d2.jpeg')->assertOk());
+        $this->get($imageOriginal1Path)->assertRedirect();
+        $this->get($imageOriginal1Thumb100)->assertStatus(200);
+        $this->get($imageOriginal1Thumb400)->assertStatus(200);
+
+        $this->get($imageOriginal2Path)->assertStatus(200);
+        $this->get($imageOriginal2Thumb100)->assertStatus(200);
+        $this->get($imageOriginal2Thumb400)->assertStatus(200);
+
     }
 
     /**
